@@ -451,6 +451,22 @@ img{max-width:100%;display:block}
         <input class="input" id="loginPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <button class="btn btn-primary w-full" onclick="doLogin()" data-i18n="login_btn">Log in</button>
+      <div style="text-align:center;margin-top:14px">
+        <span style="font-size:13px;color:var(--text3);cursor:pointer;text-decoration:underline" onclick="authTab('forgot')" data-i18n="forgot_password">Forgot password?</span>
+      </div>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div class="auth-panel" id="panel-forgot">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6" data-i18n="forgot_hint">Enter your email and we will send you a reset link.</div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="email">Email</label>
+        <input class="input" id="forgotEmail" type="email" data-i18n-ph="email_ph" placeholder="you@email.com" onkeydown="if(event.key==='Enter')doForgot()">
+      </div>
+      <button class="btn btn-primary w-full" onclick="doForgot()" data-i18n="forgot_send">Send reset link</button>
+      <div style="text-align:center;margin-top:14px">
+        <span style="font-size:13px;color:var(--text3);cursor:pointer;text-decoration:underline" onclick="authTab('login')" data-i18n="back_to_login">Back to login</span>
+      </div>
     </div>
 
     <!-- SIGNUP -->
@@ -586,6 +602,24 @@ img{max-width:100%;display:block}
   </div>
 </div>
 
+
+<!-- RESET PASSWORD MODAL -->
+<div class="modal-bg" id="resetModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title" data-i18n="reset_title">Set new password</div>
+    <div class="modal-sub" data-i18n="reset_sub">Choose a strong password for your account.</div>
+    <div class="auth-error" id="resetError"></div>
+    <div class="form-group">
+      <label class="form-label" data-i18n="reset_new">New password</label>
+      <input class="input" id="resetPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doReset()">
+    </div>
+    <div class="form-group">
+      <label class="form-label" data-i18n="reset_confirm">Confirm password</label>
+      <input class="input" id="resetConfirm" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doReset()">
+    </div>
+    <button class="btn btn-primary w-full" onclick="doReset()" data-i18n="reset_btn">Update password</button>
+  </div>
+</div>
 <!-- TOAST -->
 <div id="toast"><span id="toastIcon">✅</span><span id="toastMsg"></span></div>
 
@@ -593,8 +627,8 @@ img{max-width:100%;display:block}
 // ══════════════════════════════════════════════════════
 //  ①  SUPABASE CONFIG  ← PASTE YOUR VALUES HERE
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL = 'https://gapxxabulfeenzevhsgo.supabase.co';      // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhcHh4YWJ1bGZlZW56ZXZoc2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg4ODMsImV4cCI6MjA4OTE0NDg4M30.YjdGsQ_x1u3OIBl8145dFmjVm7KFqWWR3rRPkrtZpm0'; // eyJhbGci...
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';      // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY'; // eyJhbGci...
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -640,6 +674,13 @@ const LANGS = {
     err_fields:'Please fill in required fields.',err_upload:'Upload failed.',
     ok_post:'Post published!',ok_project:'Project created!',ok_profile:'Profile saved!',
     ok_login:'Welcome back!',ok_signup:'Account created! Welcome!',ok_deleted:'Deleted.',
+    forgot_password:'Forgot password?',forgot_hint:'Enter your email and we will send you a reset link.',
+    forgot_send:'Send reset link',back_to_login:'Back to login',
+    forgot_ok:'Reset link sent! Check your email.',
+    reset_title:'Set new password',reset_sub:'Choose a strong password for your account.',
+    reset_new:'New password',reset_confirm:'Confirm password',reset_btn:'Update password',
+    reset_ok:'Password updated! You are now logged in.',reset_mismatch:'Passwords do not match.',
+    reset_short:'Password must be at least 6 characters.',
   },
   ru:{
     nav_home:'Главная',nav_projects:'Проекты',nav_chat:'Чат',
@@ -679,6 +720,13 @@ const LANGS = {
     err_fields:'Пожалуйста, заполните обязательные поля.',err_upload:'Ошибка загрузки.',
     ok_post:'Пост опубликован!',ok_project:'Проект создан!',ok_profile:'Профиль сохранён!',
     ok_login:'С возвращением!',ok_signup:'Аккаунт создан! Добро пожаловать!',ok_deleted:'Удалено.',
+    forgot_password:'Забыли пароль?',forgot_hint:'Введите email и мы отправим вам ссылку для сброса.',
+    forgot_send:'Отправить ссылку',back_to_login:'Назад ко входу',
+    forgot_ok:'Ссылка отправлена! Проверьте почту.',
+    reset_title:'Новый пароль',reset_sub:'Придумайте надёжный пароль для вашего аккаунта.',
+    reset_new:'Новый пароль',reset_confirm:'Подтвердите пароль',reset_btn:'Обновить пароль',
+    reset_ok:'Пароль обновлён! Вы вошли в систему.',reset_mismatch:'Пароли не совпадают.',
+    reset_short:'Пароль должен содержать не менее 6 символов.',
   },
   uz:{
     nav_home:'Asosiy',nav_projects:'Loyihalar',nav_chat:'Chat',
@@ -872,7 +920,40 @@ function authTab(tab){
   document.querySelectorAll('.auth-tab').forEach((b,i) => b.classList.toggle('on', (i===0&&tab==='login')||(i===1&&tab==='signup')));
   document.getElementById('panel-login').classList.toggle('on', tab==='login');
   document.getElementById('panel-signup').classList.toggle('on', tab==='signup');
+  document.getElementById('panel-forgot').classList.toggle('on', tab==='forgot');
   document.getElementById('authError').classList.remove('show');
+  if(tab==='forgot') document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('on'));
+}
+
+async function doForgot(){
+  const email = document.getElementById('forgotEmail').value.trim();
+  if(!email){ showAuthError(t('err_fields')); return; }
+  const btn = document.querySelector('#panel-forgot .btn-primary');
+  btn.disabled = true; btn.textContent = '...';
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  });
+  btn.disabled = false; btn.textContent = t('forgot_send');
+  if(error){ showAuthError(error.message); return; }
+  closeModal('authModal');
+  toast(t('forgot_ok'));
+}
+
+async function doReset(){
+  const pass    = document.getElementById('resetPass').value;
+  const confirm = document.getElementById('resetConfirm').value;
+  const errEl   = document.getElementById('resetError');
+  errEl.classList.remove('show');
+  if(pass.length < 6){ errEl.textContent=t('reset_short'); errEl.classList.add('show'); return; }
+  if(pass !== confirm){ errEl.textContent=t('reset_mismatch'); errEl.classList.add('show'); return; }
+  const btn = document.querySelector('#resetModal .btn-primary');
+  btn.disabled = true; btn.textContent = '...';
+  const { error } = await sb.auth.updateUser({ password: pass });
+  btn.disabled = false; btn.textContent = t('reset_btn');
+  if(error){ errEl.textContent=error.message; errEl.classList.add('show'); return; }
+  closeModal('resetModal');
+  toast(t('reset_ok'));
+  loadFeed();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1528,7 +1609,18 @@ if(SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_KEY === 'YOUR_SUPABASE_ANON_
     </div>`;
 } else {
   applyLang();
-  initAuth().then(() => { loadFeed(); });
+  initAuth().then(() => {
+    loadFeed();
+    // Detect when user arrives via password reset email link
+    sb.auth.onAuthStateChange((event, session) => {
+      if(event === 'PASSWORD_RECOVERY'){
+        // Show the reset password modal immediately
+        document.getElementById('resetModal').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        applyLang();
+      }
+    });
+  });
 }
 </script>
 </body>
