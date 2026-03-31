@@ -448,7 +448,10 @@ img{max-width:100%;display:block}
       </div>
       <div class="form-group">
         <label class="form-label" data-i18n="password">Password</label>
-        <input class="input" id="loginPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+        <div style="position:relative">
+          <input class="input" id="loginPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:42px">
+          <button type="button" onclick="toggleEye('loginPass','eyeL')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1" id="eyeL">👁</button>
+        </div>
       </div>
       <button class="btn btn-primary w-full" onclick="doLogin()" data-i18n="login_btn">Log in</button>
       <div style="text-align:center;margin-top:14px">
@@ -481,7 +484,10 @@ img{max-width:100%;display:block}
       </div>
       <div class="form-group">
         <label class="form-label" data-i18n="password">Password</label>
-        <input class="input" id="signupPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignup()">
+        <div style="position:relative">
+          <input class="input" id="signupPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignup()" style="padding-right:42px">
+          <button type="button" onclick="toggleEye('signupPass','eyeS')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1" id="eyeS">👁</button>
+        </div>
       </div>
       <button class="btn btn-primary w-full" onclick="doSignup()" data-i18n="signup_btn">Create account</button>
     </div>
@@ -611,13 +617,26 @@ img{max-width:100%;display:block}
     <div class="auth-error" id="resetError"></div>
     <div class="form-group">
       <label class="form-label" data-i18n="reset_new">New password</label>
-      <input class="input" id="resetPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doReset()">
+      <div style="position:relative">
+        <input class="input" id="resetPass" type="password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')doReset()" oninput="checkPassMatch()" style="padding-right:42px">
+        <button type="button" onclick="toggleEye('resetPass','eyeR1')"
+          style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1" id="eyeR1">👁</button>
+      </div>
     </div>
     <div class="form-group">
-      <label class="form-label" data-i18n="reset_confirm">Confirm password</label>
-      <input class="input" id="resetConfirm" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doReset()">
+      <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+        <span data-i18n="reset_confirm">Confirm password</span>
+        <span id="matchIndicator" style="font-size:12px;font-weight:600;display:none"></span>
+      </label>
+      <div style="position:relative">
+        <input class="input" id="resetConfirm" type="password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')doReset()" oninput="checkPassMatch()" style="padding-right:42px">
+        <button type="button" onclick="toggleEye('resetConfirm','eyeR2')"
+          style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1" id="eyeR2">👁</button>
+      </div>
     </div>
-    <button class="btn btn-primary w-full" onclick="doReset()" data-i18n="reset_btn">Update password</button>
+    <button class="btn btn-primary w-full" id="resetSubmitBtn" onclick="doReset()" data-i18n="reset_btn">Update password</button>
   </div>
 </div>
 <!-- TOAST -->
@@ -627,8 +646,8 @@ img{max-width:100%;display:block}
 // ══════════════════════════════════════════════════════
 //  ①  SUPABASE CONFIG  ← PASTE YOUR VALUES HERE
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL = 'https://gapxxabulfeenzevhsgo.supabase.co';      // e.g. https://xxxx.supabase.co
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhcHh4YWJ1bGZlZW56ZXZoc2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg4ODMsImV4cCI6MjA4OTE0NDg4M30.YjdGsQ_x1u3OIBl8145dFmjVm7KFqWWR3rRPkrtZpm0'; // eyJhbGci...
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';      // e.g. https://xxxx.supabase.co
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY'; // eyJhbGci...
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -817,9 +836,21 @@ function goTo(page){
 async function initAuth(){
   const { data: { session } } = await sb.auth.getSession();
   if(session) await setUser(session.user);
-  sb.auth.onAuthStateChange(async (_e, session) => {
-    if(session) await setUser(session.user);
-    else clearUser();
+  sb.auth.onAuthStateChange(async (event, session) => {
+    // SECURITY FIX: During PASSWORD_RECOVERY, do NOT sign the user in.
+    // Only show the reset modal. User logs in only after setting new password.
+    if(event === 'PASSWORD_RECOVERY'){
+      // Block auto sign-in — sign back out silently
+      await sb.auth.signOut();
+      clearUser();
+      // Show reset modal
+      document.getElementById('resetModal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+      applyLang();
+      return;
+    }
+    if(event === 'SIGNED_IN' && session) await setUser(session.user);
+    if(event === 'SIGNED_OUT') clearUser();
   });
 }
 
@@ -946,13 +977,26 @@ async function doReset(){
   errEl.classList.remove('show');
   if(pass.length < 6){ errEl.textContent=t('reset_short'); errEl.classList.add('show'); return; }
   if(pass !== confirm){ errEl.textContent=t('reset_mismatch'); errEl.classList.add('show'); return; }
-  const btn = document.querySelector('#resetModal .btn-primary');
+  const btn = document.getElementById('resetSubmitBtn');
   btn.disabled = true; btn.textContent = '...';
+  // Need an active session to call updateUser — sign in with the OTP from URL
+  const hash = window.location.hash;
+  const params = new URLSearchParams(hash.replace('#',''));
+  const accessToken  = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  if(accessToken){
+    await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+  }
   const { error } = await sb.auth.updateUser({ password: pass });
   btn.disabled = false; btn.textContent = t('reset_btn');
   if(error){ errEl.textContent=error.message; errEl.classList.add('show'); return; }
+  // Clean the URL so tokens aren't visible
+  history.replaceState(null, '', window.location.pathname);
   closeModal('resetModal');
   toast(t('reset_ok'));
+  // Now sign in properly
+  const { data: { session } } = await sb.auth.getSession();
+  if(session) await setUser(session.user);
   loadFeed();
 }
 
@@ -1589,6 +1633,39 @@ function timeAgo(ts){
 }
 function sharePost(id){ navigator.clipboard?.writeText(location.href+'#post-'+id); toast('Link copied!'); }
 
+
+// ── EYE ICON (show/hide password) ────────────────
+function toggleEye(inputId, btnId){
+  const input = document.getElementById(inputId);
+  const btn   = document.getElementById(btnId);
+  if(input.type === 'password'){
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
+// ── PASSWORD MATCH INDICATOR ──────────────────────
+function checkPassMatch(){
+  const pass    = document.getElementById('resetPass').value;
+  const confirm = document.getElementById('resetConfirm').value;
+  const indicator = document.getElementById('matchIndicator');
+  const submitBtn = document.getElementById('resetSubmitBtn');
+  if(!confirm){ indicator.style.display='none'; submitBtn.disabled=false; return; }
+  indicator.style.display = 'inline';
+  if(pass === confirm){
+    indicator.textContent = '✓ Match';
+    indicator.style.color = 'var(--green)';
+    submitBtn.disabled = false;
+  } else {
+    indicator.textContent = '✗ No match';
+    indicator.style.color = '#f87171';
+    submitBtn.disabled = true;
+  }
+}
+
 // ══════════════════════════════════════════════════════
 //  ⑮  BOOT
 // ══════════════════════════════════════════════════════
@@ -1611,15 +1688,6 @@ if(SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_KEY === 'YOUR_SUPABASE_ANON_
   applyLang();
   initAuth().then(() => {
     loadFeed();
-    // Detect when user arrives via password reset email link
-    sb.auth.onAuthStateChange((event, session) => {
-      if(event === 'PASSWORD_RECOVERY'){
-        // Show the reset password modal immediately
-        document.getElementById('resetModal').classList.add('open');
-        document.body.style.overflow = 'hidden';
-        applyLang();
-      }
-    });
   });
 }
 </script>
