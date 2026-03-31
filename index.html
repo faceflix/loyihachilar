@@ -485,11 +485,21 @@ img{max-width:100%;display:block}
       <div class="form-group">
         <label class="form-label" data-i18n="password">Password</label>
         <div style="position:relative">
-          <input class="input" id="signupPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignup()" style="padding-right:42px">
+          <input class="input" id="signupPass" type="password" placeholder="••••••••" oninput="checkSignupMatch()" style="padding-right:42px">
           <button type="button" onclick="toggleEye('signupPass','eyeS')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1" id="eyeS">👁</button>
         </div>
       </div>
-      <button class="btn btn-primary w-full" onclick="doSignup()" data-i18n="signup_btn">Create account</button>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          <span data-i18n="confirm_password">Confirm password</span>
+          <span id="signupMatchIndicator" style="font-size:12px;font-weight:600;display:none"></span>
+        </label>
+        <div style="position:relative">
+          <input class="input" id="signupConfirm" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignup()" oninput="checkSignupMatch()" style="padding-right:42px">
+          <button type="button" onclick="toggleEye('signupConfirm','eyeSC')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1" id="eyeSC">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-primary w-full" id="signupSubmitBtn" onclick="doSignup()" data-i18n="signup_btn">Create account</button>
     </div>
   </div>
 </div>
@@ -693,7 +703,7 @@ const LANGS = {
     err_fields:'Please fill in required fields.',err_upload:'Upload failed.',
     ok_post:'Post published!',ok_project:'Project created!',ok_profile:'Profile saved!',
     ok_login:'Welcome back!',ok_signup:'Account created! Welcome!',ok_deleted:'Deleted.',
-    forgot_password:'Forgot password?',forgot_hint:'Enter your email and we will send you a reset link.',
+    confirm_password:'Confirm password',forgot_password:'Forgot password?',forgot_hint:'Enter your email and we will send you a reset link.',
     forgot_send:'Send reset link',back_to_login:'Back to login',
     forgot_ok:'Reset link sent! Check your email.',
     reset_title:'Set new password',reset_sub:'Choose a strong password for your account.',
@@ -739,7 +749,7 @@ const LANGS = {
     err_fields:'Пожалуйста, заполните обязательные поля.',err_upload:'Ошибка загрузки.',
     ok_post:'Пост опубликован!',ok_project:'Проект создан!',ok_profile:'Профиль сохранён!',
     ok_login:'С возвращением!',ok_signup:'Аккаунт создан! Добро пожаловать!',ok_deleted:'Удалено.',
-    forgot_password:'Забыли пароль?',forgot_hint:'Введите email и мы отправим вам ссылку для сброса.',
+    confirm_password:'Подтвердите пароль',forgot_password:'Забыли пароль?',forgot_hint:'Введите email и мы отправим вам ссылку для сброса.',
     forgot_send:'Отправить ссылку',back_to_login:'Назад ко входу',
     forgot_ok:'Ссылка отправлена! Проверьте почту.',
     reset_title:'Новый пароль',reset_sub:'Придумайте надёжный пароль для вашего аккаунта.',
@@ -836,6 +846,7 @@ function goTo(page){
 async function initAuth(){
   const { data: { session } } = await sb.auth.getSession();
   if(session) await setUser(session.user);
+  else renderNav(); // no session — still render login/signup buttons
   sb.auth.onAuthStateChange(async (event, session) => {
     // SECURITY FIX: During PASSWORD_RECOVERY, do NOT sign the user in.
     // Only show the reset modal. User logs in only after setting new password.
@@ -876,6 +887,7 @@ function clearUser(){
 
 function renderNav(){
   const el = document.getElementById('navAuth');
+  if(!el) return; // guard: DOM not ready yet
   if(currentUser){
     const initials = (currentProfile?.name || currentUser.email).slice(0,2).toUpperCase();
     el.innerHTML = `
@@ -884,17 +896,23 @@ function renderNav(){
         <div class="avatar" onclick="goTo('profile')" title="Profile">${initials}</div>
         <button class="btn btn-ghost btn-sm" onclick="doLogout()" data-i18n="logout">Log out</button>
       </div>`;
-    document.getElementById('sideProfile').style.display = 'block';
+    const sp = document.getElementById('sideProfile');
+    const ca = document.getElementById('chatInputArea');
+    const ch = document.getElementById('chatLoginHint');
+    if(sp) sp.style.display = 'block';
+    if(ca) ca.style.display = 'block';
+    if(ch) ch.style.display = 'none';
     renderSideProfile();
-    document.getElementById('chatInputArea').style.display = 'block';
-    document.getElementById('chatLoginHint').style.display = 'none';
   } else {
     el.innerHTML = `
       <button class="btn btn-secondary btn-sm" onclick="authTab('login');openModal('authModal')" data-i18n="login">Log in</button>
       <button class="btn btn-primary btn-sm"   onclick="authTab('signup');openModal('authModal')" data-i18n="signup">Sign up</button>`;
-    document.getElementById('sideProfile').style.display = 'none';
-    document.getElementById('chatInputArea').style.display = 'none';
-    document.getElementById('chatLoginHint').style.display = 'block';
+    const sp = document.getElementById('sideProfile');
+    const ca = document.getElementById('chatInputArea');
+    const ch = document.getElementById('chatLoginHint');
+    if(sp) sp.style.display = 'none';
+    if(ca) ca.style.display = 'none';
+    if(ch) ch.style.display = 'block';
   }
   applyLang();
 }
@@ -921,17 +939,22 @@ async function doLogin(){
 }
 
 async function doSignup(){
-  const name  = document.getElementById('signupName').value.trim();
-  const email = document.getElementById('signupEmail').value.trim();
-  const pass  = document.getElementById('signupPass').value;
-  if(!name || !email || !pass){ showAuthError(t('err_fields')); return; }
-  // Bug 5 fix: disable button during request
-  const btn = document.querySelector('#panel-signup .btn-primary');
+  const name    = document.getElementById('signupName').value.trim();
+  const email   = document.getElementById('signupEmail').value.trim();
+  const pass    = document.getElementById('signupPass').value;
+  const confirm = document.getElementById('signupConfirm').value;
+  if(!name || !email || !pass || !confirm){ showAuthError(t('err_fields')); return; }
+  if(pass.length < 6){ showAuthError(t('reset_short')); return; }
+  if(pass !== confirm){ showAuthError(t('reset_mismatch')); return; }
+  const btn = document.getElementById('signupSubmitBtn');
   btn.disabled = true; btn.textContent = '...';
   const { error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ name } } });
   btn.disabled = false; btn.textContent = t('signup_btn');
   if(error){ showAuthError(t('err_signup')); return; }
   closeModal('authModal');
+  // clear fields
+  ['signupName','signupEmail','signupPass','signupConfirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('signupMatchIndicator').style.display = 'none';
   toast(t('ok_signup'));
 }
 
@@ -1648,6 +1671,24 @@ function toggleEye(inputId, btnId){
 }
 
 // ── PASSWORD MATCH INDICATOR ──────────────────────
+function checkSignupMatch(){
+  const pass    = document.getElementById('signupPass').value;
+  const confirm = document.getElementById('signupConfirm').value;
+  const indicator = document.getElementById('signupMatchIndicator');
+  const btn = document.getElementById('signupSubmitBtn');
+  if(!confirm){ indicator.style.display='none'; if(btn) btn.disabled=false; return; }
+  indicator.style.display = 'inline';
+  if(pass === confirm){
+    indicator.textContent = '✓ Match';
+    indicator.style.color = 'var(--green)';
+    if(btn) btn.disabled = false;
+  } else {
+    indicator.textContent = '✗ No match';
+    indicator.style.color = '#f87171';
+    if(btn) btn.disabled = true;
+  }
+}
+
 function checkPassMatch(){
   const pass    = document.getElementById('resetPass').value;
   const confirm = document.getElementById('resetConfirm').value;
