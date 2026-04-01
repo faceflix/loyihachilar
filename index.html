@@ -843,17 +843,18 @@ function goTo(page){
 // ══════════════════════════════════════════════════════
 //  ⑤  AUTH
 // ══════════════════════════════════════════════════════
+// Holds the recovery session so doReset can use it
+let recoverySession = null;
+
 async function initAuth(){
   const { data: { session } } = await sb.auth.getSession();
   if(session) await setUser(session.user);
   else renderNav(); // no session — still render login/signup buttons
   sb.auth.onAuthStateChange(async (event, session) => {
-    // SECURITY FIX: During PASSWORD_RECOVERY, do NOT sign the user in.
-    // Only show the reset modal. User logs in only after setting new password.
     if(event === 'PASSWORD_RECOVERY'){
-      // Block auto sign-in — sign back out silently
-      await sb.auth.signOut();
-      clearUser();
+      // Store session for use in doReset, but do NOT sign user into the app
+      recoverySession = session;
+      clearUser(); // keep UI as logged-out
       // Show reset modal
       document.getElementById('resetModal').classList.add('open');
       document.body.style.overflow = 'hidden';
@@ -1002,22 +1003,21 @@ async function doReset(){
   if(pass !== confirm){ errEl.textContent=t('reset_mismatch'); errEl.classList.add('show'); return; }
   const btn = document.getElementById('resetSubmitBtn');
   btn.disabled = true; btn.textContent = '...';
-  // Need an active session to call updateUser — sign in with the OTP from URL
-  const hash = window.location.hash;
-  const params = new URLSearchParams(hash.replace('#',''));
-  const accessToken  = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-  if(accessToken){
-    await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+  // Restore the recovery session so updateUser has an active session to work with
+  if(recoverySession){
+    await sb.auth.setSession({
+      access_token:  recoverySession.access_token,
+      refresh_token: recoverySession.refresh_token,
+    });
   }
   const { error } = await sb.auth.updateUser({ password: pass });
   btn.disabled = false; btn.textContent = t('reset_btn');
-  if(error){ errEl.textContent=error.message; errEl.classList.add('show'); return; }
-  // Clean the URL so tokens aren't visible
-  history.replaceState(null, '', window.location.pathname);
+  if(error){ errEl.textContent = error.message; errEl.classList.add('show'); return; }
+  recoverySession = null; // clear stored session
+  history.replaceState(null, '', window.location.pathname); // clean URL
   closeModal('resetModal');
   toast(t('reset_ok'));
-  // Now sign in properly
+  // Sign user in properly after successful password update
   const { data: { session } } = await sb.auth.getSession();
   if(session) await setUser(session.user);
   loadFeed();
