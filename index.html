@@ -273,6 +273,10 @@ img{max-width:100%;display:block}
     <div class="nav-link active" onclick="goTo('home')"     data-page="home"     data-i18n="nav_home">Home</div>
     <div class="nav-link"        onclick="goTo('projects')" data-page="projects" data-i18n="nav_projects">Projects</div>
     <div class="nav-link"        onclick="goTo('chat')"     data-page="chat"     data-i18n="nav_chat">Chat</div>
+    <div class="nav-link"        onclick="goTo('inbox')"    data-page="inbox"    data-i18n="nav_inbox" id="inboxNavBtn" style="display:none">
+      💬 <span data-i18n="nav_inbox">Messages</span>
+      <span id="unreadBadge" style="display:none;background:var(--accent2);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:100px;margin-left:2px">0</span>
+    </div>
   </div>
   <div class="nav-right">
     <div class="lang-sw">
@@ -408,6 +412,44 @@ img{max-width:100%;display:block}
   </div>
 </div>
 
+
+<!-- ══════════════════════════════════════
+     PAGE: INBOX (DM list)
+══════════════════════════════════════ -->
+<div class="page" id="page-inbox">
+  <div class="page-wrap" style="padding-top:28px;max-width:700px">
+    <div class="flex items-center justify-between" style="margin-bottom:20px">
+      <h1 style="font-size:24px;font-weight:800" data-i18n="inbox_title">Messages</h1>
+    </div>
+    <div id="inboxList"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PAGE: DM CHAT
+══════════════════════════════════════ -->
+<div class="page" id="page-dm">
+  <div style="max-width:760px;margin:0 auto;height:calc(100vh - 60px);display:flex;flex-direction:column;padding:0 20px">
+    <!-- DM Header -->
+    <div style="padding:16px 0 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <button class="btn btn-ghost btn-sm" onclick="goTo('inbox')" style="padding:6px 10px">← <span data-i18n="back">Back</span></button>
+      <div class="avatar" id="dmPartnerAvatar" style="width:36px;height:36px;font-size:13px"></div>
+      <div>
+        <div style="font-size:15px;font-weight:700" id="dmPartnerName"></div>
+        <div style="font-size:12px;color:var(--text3)" data-i18n="dm_private">Private conversation</div>
+      </div>
+    </div>
+    <!-- Messages -->
+    <div id="dmMsgs" style="flex:1;overflow-y:auto;padding:16px 0;display:flex;flex-direction:column;gap:10px"></div>
+    <!-- Input -->
+    <div id="dmInputArea" style="padding:12px 0;border-top:1px solid var(--border);flex-shrink:0">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <textarea class="chat-input" id="dmInput" rows="1" data-i18n-ph="chat_type" placeholder="Type a message..." onkeydown="dmKeydown(event)" style="flex:1"></textarea>
+        <button class="btn btn-primary btn-sm" onclick="sendDM()" data-i18n="chat_send">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- ══════════════════════════════════════
      PAGE: ADMIN
 ══════════════════════════════════════ -->
@@ -710,6 +752,10 @@ const LANGS = {
     reset_new:'New password',reset_confirm:'Confirm password',reset_btn:'Update password',
     reset_ok:'Password updated! You are now logged in.',reset_mismatch:'Passwords do not match.',
     reset_short:'Password must be at least 6 characters.',
+    nav_inbox:'Messages',inbox_title:'Messages',inbox_empty:'No conversations yet.',
+    inbox_you:'You: ',dm_private:'Private conversation',
+    back:'Back',dm_send_first:'Say hello!',
+    dm_with:'Message',unread:'unread',
   },
   ru:{
     nav_home:'Главная',nav_projects:'Проекты',nav_chat:'Чат',
@@ -756,6 +802,10 @@ const LANGS = {
     reset_new:'Новый пароль',reset_confirm:'Подтвердите пароль',reset_btn:'Обновить пароль',
     reset_ok:'Пароль обновлён! Вы вошли в систему.',reset_mismatch:'Пароли не совпадают.',
     reset_short:'Пароль должен содержать не менее 6 символов.',
+    nav_inbox:'Сообщения',inbox_title:'Сообщения',inbox_empty:'Нет переписок.',
+    inbox_you:'Вы: ',dm_private:'Личная переписка',
+    back:'Назад',dm_send_first:'Напишите первым!',
+    dm_with:'Написать',unread:'непрочитано',
   },
   uz:{
     nav_home:'Asosiy',nav_projects:'Loyihalar',nav_chat:'Chat',
@@ -838,6 +888,7 @@ function goTo(page){
   if(page === 'chat')     initChat();
   if(page === 'profile')  loadProfile();
   if(page === 'admin')    loadAdmin();
+  if(page === 'inbox')    loadInbox();
 }
 
 // ══════════════════════════════════════════════════════
@@ -879,6 +930,7 @@ async function setUser(user){
   currentProfile = profile;
   renderNav();
   renderCreateBar();
+  subscribeInboxNotifications();
 }
 
 function clearUser(){
@@ -900,9 +952,11 @@ function renderNav(){
     const sp = document.getElementById('sideProfile');
     const ca = document.getElementById('chatInputArea');
     const ch = document.getElementById('chatLoginHint');
+    const ib = document.getElementById('inboxNavBtn');
     if(sp) sp.style.display = 'block';
     if(ca) ca.style.display = 'block';
     if(ch) ch.style.display = 'none';
+    if(ib) ib.style.display = 'flex';
     renderSideProfile();
   } else {
     el.innerHTML = `
@@ -911,9 +965,12 @@ function renderNav(){
     const sp = document.getElementById('sideProfile');
     const ca = document.getElementById('chatInputArea');
     const ch = document.getElementById('chatLoginHint');
+    const ib = document.getElementById('inboxNavBtn');
     if(sp) sp.style.display = 'none';
     if(ca) ca.style.display = 'none';
     if(ch) ch.style.display = 'block';
+    if(ib) ib.style.display = 'none';
+    unreadCounts = {}; updateUnreadBadge();
   }
   applyLang();
 }
@@ -1064,7 +1121,10 @@ function postCard(p){
           <div class="post-author-name">${escHtml(name)}</div>
           <div class="post-time">${ago}</div>
         </div>
-        ${isOwn ? `<button class="btn btn-ghost btn-xs" style="margin-left:auto;color:var(--text3)" onclick="deletePost('${p.id}')">✕</button>` : ''}
+        <div style="margin-left:auto;display:flex;gap:4px">
+          ${!isOwn && currentUser ? `<button class="btn btn-ghost btn-xs" style="color:var(--text3)" onclick="openDM('${p.user_id}','${escHtml(name)}')">✉️</button>` : ''}
+          ${isOwn ? `<button class="btn btn-ghost btn-xs" style="color:var(--text3)" onclick="deletePost('${p.id}')">✕</button>` : ''}
+        </div>
       </div>
       ${p.title ? `<div class="post-title">${escHtml(p.title)}</div>` : ''}
       <div class="post-body">${escHtml(p.body)}</div>
@@ -1705,6 +1765,224 @@ function checkPassMatch(){
     indicator.style.color = '#f87171';
     submitBtn.disabled = true;
   }
+}
+
+
+// ══════════════════════════════════════════════════════
+//  ⑰  PRIVATE MESSAGES (DMs)
+// ══════════════════════════════════════════════════════
+
+// Generate a stable room ID for two users — always the same regardless of order
+function dmRoom(uid1, uid2){
+  return 'dm_' + [uid1, uid2].sort().join('_');
+}
+
+// Open a DM chat with a specific user
+async function openDM(partnerId, partnerName){
+  if(!currentUser){ openModal('authModal'); return; }
+  if(partnerId === currentUser.id) return; // can't DM yourself
+
+  currentDMPartnerId   = partnerId;
+  currentDMPartnerName = partnerName;
+  currentDMRoom        = dmRoom(currentUser.id, partnerId);
+
+  // Update DM page header
+  document.getElementById('dmPartnerAvatar').textContent = partnerName.slice(0,2).toUpperCase();
+  document.getElementById('dmPartnerName').textContent   = partnerName;
+
+  goTo('dm');
+  await loadDMMessages();
+  subscribeDM();
+}
+
+let currentDMPartnerId   = null;
+let currentDMPartnerName = null;
+let currentDMRoom        = null;
+let dmSub                = null;
+
+async function loadDMMessages(){
+  const el = document.getElementById('dmMsgs');
+  el.innerHTML = `<div class="skel" style="height:60px;border-radius:var(--r)"></div>`;
+  const { data } = await sb.from('messages')
+    .select('*, profiles(name)')
+    .eq('room', currentDMRoom)
+    .order('created_at')
+    .limit(100);
+  if(!data?.length){
+    el.innerHTML = `<div class="empty"><div class="empty-icon">💬</div>
+      <div class="empty-text">${t('dm_send_first')}</div></div>`;
+    return;
+  }
+  el.innerHTML = data.map(m => dmMsgHtml(m)).join('');
+  el.scrollTop = el.scrollHeight;
+  // mark as read
+  markDMRead(currentDMRoom);
+}
+
+function dmMsgHtml(m){
+  const isMe = m.sender_id === currentUser?.id;
+  const name = isMe ? 'You' : (m.profiles?.name || '?');
+  return `
+  <div style="display:flex;flex-direction:${isMe ? 'row-reverse' : 'row'};gap:8px;align-items:flex-end">
+    ${!isMe ? `<div class="avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${name.slice(0,2).toUpperCase()}</div>` : ''}
+    <div style="max-width:72%">
+      <div style="
+        background:${isMe ? 'var(--accent)' : 'var(--surface)'};
+        color:${isMe ? '#fff' : 'var(--text)'};
+        padding:10px 14px;border-radius:${isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px'};
+        font-size:14px;line-height:1.6;word-break:break-word;
+        border:${isMe ? 'none' : '1px solid var(--border)'}
+      ">${escHtml(m.body)}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px;text-align:${isMe ? 'right' : 'left'}">${timeAgo(m.created_at)}</div>
+    </div>
+  </div>`;
+}
+
+function subscribeDM(){
+  if(dmSub) sb.removeChannel(dmSub);
+  dmSub = sb.channel('dm-' + currentDMRoom)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'messages',
+      filter: `room=eq.${currentDMRoom}`
+    }, async payload => {
+      const { data } = await sb.from('messages')
+        .select('*, profiles(name)')
+        .eq('id', payload.new.id).single();
+      if(!data) return;
+      const el = document.getElementById('dmMsgs');
+      if(!el) return;
+      // Remove empty state if present
+      const empty = el.querySelector('.empty');
+      if(empty) empty.remove();
+      el.insertAdjacentHTML('beforeend', dmMsgHtml(data));
+      el.scrollTop = el.scrollHeight;
+      markDMRead(currentDMRoom);
+    })
+    .subscribe();
+}
+
+async function sendDM(){
+  if(!currentUser || !currentDMRoom) return;
+  const input = document.getElementById('dmInput');
+  const body = input.value.trim();
+  if(!body) return;
+  input.value = '';
+  await sb.from('messages').insert({
+    sender_id: currentUser.id,
+    room: currentDMRoom,
+    body,
+  });
+}
+
+function dmKeydown(e){
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendDM(); }
+}
+
+// ── INBOX ─────────────────────────────────────────────
+async function loadInbox(){
+  const el = document.getElementById('inboxList');
+  if(!currentUser){
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🔒</div>
+      <div class="empty-text">${t('login')}</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="skel" style="height:80px;border-radius:var(--r);margin-bottom:8px"></div>`.repeat(3);
+
+  // Get all DM messages involving this user
+  const { data: msgs } = await sb.from('messages')
+    .select('*, profiles(name)')
+    .like('room', `dm_%${currentUser.id}%`)
+    .order('created_at', { ascending: false });
+
+  if(!msgs?.length){
+    el.innerHTML = `<div class="empty"><div class="empty-icon">💬</div>
+      <div class="empty-text">${t('inbox_empty')}</div></div>`;
+    return;
+  }
+
+  // Group by room, keep latest message per room
+  const rooms = {};
+  msgs.forEach(m => {
+    if(!rooms[m.room]) rooms[m.room] = m;
+  });
+
+  // Get partner profiles
+  const partnerIds = Object.values(rooms).map(m => {
+    const parts = m.room.replace('dm_','').split('_');
+    return parts.find(id => id !== currentUser.id);
+  }).filter(Boolean);
+
+  const { data: partners } = await sb.from('profiles')
+    .select('id, name')
+    .in('id', partnerIds);
+
+  const partnerMap = {};
+  (partners||[]).forEach(p => partnerMap[p.id] = p);
+
+  el.innerHTML = Object.entries(rooms).map(([room, lastMsg]) => {
+    const parts = room.replace('dm_','').split('_');
+    const partnerId = parts.find(id => id !== currentUser.id);
+    const partner = partnerMap[partnerId] || { name: 'Unknown', id: partnerId };
+    const initials = partner.name.slice(0,2).toUpperCase();
+    const isMe = lastMsg.sender_id === currentUser.id;
+    const preview = (isMe ? t('inbox_you') : '') + lastMsg.body;
+    const unread = unreadCounts[room] || 0;
+    return `
+    <div onclick="openDM('${partner.id}','${escHtml(partner.name)}')"
+      style="display:flex;align-items:center;gap:12px;padding:14px 16px;
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);
+      margin-bottom:8px;cursor:pointer;transition:all .15s"
+      onmouseover="this.style.borderColor='var(--border2)'"
+      onmouseout="this.style.borderColor='var(--border)'">
+      <div class="avatar" style="width:44px;height:44px;font-size:16px;flex-shrink:0">${initials}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+          <div style="font-size:14px;font-weight:700">${escHtml(partner.name)}</div>
+          <div style="font-size:11px;color:var(--text3)">${timeAgo(lastMsg.created_at)}</div>
+        </div>
+        <div style="font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:360px">${escHtml(preview)}</div>
+      </div>
+      ${unread > 0 ? `<div style="background:var(--accent2);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:100px;flex-shrink:0">${unread}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── UNREAD BADGE ──────────────────────────────────────
+let unreadCounts = {};
+
+function markDMRead(room){
+  if(unreadCounts[room]){ delete unreadCounts[room]; updateUnreadBadge(); }
+}
+
+function updateUnreadBadge(){
+  const total = Object.values(unreadCounts).reduce((a,b)=>a+b,0);
+  const badge = document.getElementById('unreadBadge');
+  if(!badge) return;
+  if(total > 0){
+    badge.style.display = 'inline';
+    badge.textContent = total > 99 ? '99+' : total;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Subscribe to all incoming DMs for unread count
+function subscribeInboxNotifications(){
+  if(!currentUser) return;
+  sb.channel('inbox-' + currentUser.id)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'messages',
+    }, payload => {
+      const room = payload.new.room;
+      // Only count DMs not sent by me and not currently viewing
+      if(!room.startsWith('dm_')) return;
+      if(payload.new.sender_id === currentUser.id) return;
+      if(!room.includes(currentUser.id)) return;
+      if(currentDMRoom === room) return; // currently in this chat
+      unreadCounts[room] = (unreadCounts[room] || 0) + 1;
+      updateUnreadBadge();
+    })
+    .subscribe();
 }
 
 // ══════════════════════════════════════════════════════
